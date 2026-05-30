@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>零度聊天 · 单文件全栈</title>
+<style>
+:root{
+  --bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#c9d1d9;--text2:#8b949e;
+  --accent:#58a6ff;--accent2:#3fb950;--danger:#f85149;--warn:#d2991d;
+  --msg-self:#0f2e1a;--msg-peer:#0f1e2e;--msg-admin:#2e1f0f;
+  --radius:10px;--transition:.18s ease;
+}
+body.light{
+  --bg:#f6f8fa;--surface:#fff;--border:#d0d7de;--text:#24292f;--text2:#656d76;
+  --msg-self:#dcffe4;--msg-peer:#ddf4ff;--msg-admin:#fff1c5;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100dvh;display:flex;transition:background var(--transition),color var(--transition)}
+#sidebar{width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:transform var(--transition);z-index:10}
+#sidebar-header{padding:16px;border-bottom:1px solid var(--border);font-weight:700;font-size:18px;display:flex;align-items:center;gap:8px}
+#sidebar-header .dot{width:8px;height:8px;background:var(--accent2);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+#room-list{flex:1;overflow-y:auto;padding:8px}
+.room-item{padding:10px 12px;border-radius:var(--radius);cursor:pointer;margin:2px 0;transition:background var(--transition);display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.room-item:hover{background:rgba(128,128,128,.1)}
+.room-item.active{background:rgba(88,166,255,.15);color:var(--accent);font-weight:600}
+.room-item .badge{font-size:10px;padding:2px 6px;border-radius:10px;background:var(--accent);color:#000;font-weight:700}
+#sidebar-footer{padding:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+#sidebar-footer button{width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:transparent;color:var(--text);cursor:pointer;font-size:13px;transition:all var(--transition)}
+#sidebar-footer button:hover{border-color:var(--accent);color:var(--accent)}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#topbar{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--surface)}
+#topbar .room-title{font-weight:700;font-size:16px}
+#topbar .actions{display:flex;gap:8px}
+#topbar .actions button{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:16px;transition:all var(--transition);display:flex;align-items:center;justify-content:center}
+#topbar .actions button:hover{color:var(--accent);border-color:var(--accent)}
+#msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:4px}
+.msg{max-width:75%;padding:8px 12px;border-radius:var(--radius);font-size:14px;line-height:1.5;animation:fadeUp .2s ease-out;position:relative;word-break:break-word}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.msg.self{margin-left:auto;background:var(--msg-self);border-bottom-right-radius:4px}
+.msg.peer{margin-right:auto;background:var(--msg-peer);border-bottom-left-radius:4px}
+.msg.admin{background:var(--msg-admin);border-left:3px solid var(--warn)}
+.msg .head{display:flex;gap:8px;align-items:center;margin-bottom:3px}
+.msg .name{font-weight:700;font-size:12px}
+.msg .name.admin-tag{color:var(--warn)}.msg.self .name{color:var(--accent2)}.msg.peer .name{color:var(--accent)}
+.msg .time{font-size:10px;color:var(--text2);margin-left:auto}
+.msg .body{font-size:14px;color:var(--text)}
+.msg .actions-row{display:none;position:absolute;top:-8px;right:4px;gap:4px}
+.msg:hover .actions-row{display:flex}
+.msg .actions-row button{font-size:10px;padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer}
+.msg .actions-row button:hover{color:var(--danger);border-color:var(--danger)}
+.msg.deleted .body{font-style:italic;color:var(--text2)}
+#input-area{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;background:var(--surface);flex-shrink:0}
+#input-area input{flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;outline:none;transition:border var(--transition)}
+#input-area input:focus{border-color:var(--accent)}
+#input-area button{padding:10px 20px;background:var(--accent);color:#000;border:none;border-radius:var(--radius);font-weight:700;cursor:pointer;font-size:14px;transition:opacity var(--transition)}
+#input-area button:active{opacity:.8}
+#right-panel{width:240px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;padding:12px;gap:12px;overflow-y:auto;font-size:13px}
+#right-panel h4{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+#online-list{list-style:none;display:flex;flex-direction:column;gap:4px}
+#online-list li{padding:6px 8px;border-radius:6px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:background var(--transition)}
+#online-list li:hover{background:rgba(128,128,128,.1)}
+#online-list .status-dot{width:6px;height:6px;border-radius:50%;background:var(--accent2);flex-shrink:0}
+#online-list .muted-dot{background:var(--danger)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;width:min(380px,90vw);display:flex;flex-direction:column;gap:14px}
+.modal h3{font-size:18px;text-align:center}
+.modal input{padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;outline:none}
+.modal input:focus{border-color:var(--accent)}
+.modal button{padding:10px;border-radius:var(--radius);border:none;font-weight:700;cursor:pointer;font-size:14px}
+.modal .primary{background:var(--accent);color:#000}
+.modal .danger{background:var(--danger);color:#fff}
+.modal .ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.modal .row{display:flex;gap:8px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);padding:10px 20px;border-radius:20px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
+#conn-status{position:fixed;top:8px;left:50%;transform:translateX(-50%);padding:6px 14px;border-radius:14px;font-size:12px;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none}
+#conn-status.show{opacity:1}
+#conn-status.connecting{background:var(--warn);color:#000}
+#conn-status.connected{background:var(--accent2);color:#000}
+#conn-status.disconnected{background:var(--danger);color:#fff}
+#setup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);align-items:center;justify-content:center;z-index:400}
+#setup.active{display:flex}
+#setup .modal{max-width:420px}
+#setup code{display:block;background:var(--bg);padding:12px;border-radius:8px;font-size:11px;white-space:pre-wrap;word-break:break-all;line-height:1.6;max-height:200px;overflow-y:auto;font-family:'SF Mono',monospace}
+@media(max-width:768px){
+  #sidebar{position:fixed;left:-260px;top:0;bottom:0;transition:left var(--transition)}
+  #sidebar.open{left:0}
+  #right-panel{display:none}
+  #menu-btn{display:flex!important}
+}
+#menu-btn{display:none}
+</style>
+</head>
+<body>
+
+<div id="auth-modal" class="modal-overlay">
+  <div class="modal">
+    <h3>零度聊天</h3>
+    <input id="auth-nick" placeholder="昵称" maxlength="16">
+    <input id="auth-pass" type="password" placeholder="密码（管理员需专用密码）" maxlength="32">
+    <div class="row">
+      <button class="primary" onclick="login()" style="flex:1">登录 / 注册</button>
+    </div>
+    <button class="ghost" onclick="loginAsGuest()">游客模式</button>
+    <small style="color:var(--text2);text-align:center">管理员使用专用密码登录即可获得权限</small>
+  </div>
+</div>
+
+<div id="conn-status"></div>
+
+<div id="sidebar">
+  <div id="sidebar-header"><span class="dot"></span> 零度聊天</div>
+  <div id="room-list"></div>
+  <div id="sidebar-footer">
+    <button onclick="createRoom()">+ 创建房间</button>
+    <button onclick="toggleTheme()">切换主题</button>
+    <button onclick="logout()">退出登录</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button id="menu-btn" onclick="toggleSidebar()" style="width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text);font-size:18px">&#9776;</button>
+      <span class="room-title" id="current-room-name">选择房间</span>
+    </div>
+    <div class="actions">
+      <button onclick="showOnline()" title="在线列表">&#128101;</button>
+      <button onclick="searchMsgs()" title="搜索消息">&#128269;</button>
+      <button id="admin-btn" style="display:none" onclick="toggleAdminPanel()" title="管理面板">&#9881;</button>
+    </div>
+  </div>
+  <div id="msgs"></div>
+  <div id="input-area">
+    <input id="msg-input" placeholder="输入消息... (Enter发送)" maxlength="800" autocomplete="off">
+    <button onclick="sendMsg()">发送</button>
+  </div>
+</div>
+
+<div id="right-panel">
+  <h4>在线成员</h4>
+  <ul id="online-list"></ul>
+  <div id="admin-panel" style="display:none">
+    <h4>管理操作</h4>
+    <small style="color:var(--text2)">点击在线成员进行操作</small>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="setup">
+  <div class="modal">
+    <h3>初始化数据库</h3>
+    <p style="color:var(--text2);font-size:14px">请在 Supabase SQL Editor 中执行以下语句，然后刷新页面：</p>
+    <code id="setup-sql"></code>
+    <button class="primary" onclick="copySetupSQL()">复制 SQL</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+const SUPABASE_URL = 'https://uadervycjhggnecvloyu.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZGVydnljamhnZ25lY3Zsb3l1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjczMzAsImV4cCI6MjA5NTcwMzMzMH0.rIR6_UPBw7iSCvthiUBV8zZGlc-Fvc3FEOtUbnwWCXI';
+const ADMIN_PASS = 'zeroadmin2024';
+
+const SETUP_SQL = `DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS rooms;
+
+CREATE TABLE rooms (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  muted TEXT[] DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE messages (
+  id BIGSERIAL PRIMARY KEY,
+  room_id TEXT REFERENCES rooms(id),
+  author TEXT NOT NULL,
+  body TEXT NOT NULL,
+  is_admin BOOLEAN DEFAULT false,
+  deleted BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE rooms;
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+
+INSERT INTO rooms (id, name, created_by) VALUES ('lobby', '大厅', 'system');`;
+
+$('setup-sql').textContent = SETUP_SQL;
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { realtime: { params: { eventsPerSecond: 10 } } });
+
+const $=id=>document.getElementById(id);
+let currentUser=null, rooms=[], currentRoomId=null, onlineUsers={};
+let msgChannel=null, roomChannel=null, presenceChannel=null;
+
+function showConn(status,text){
+  const el=$('conn-status'); el.className=status; el.textContent=text; el.classList.add('show');
+  if(status==='connected')setTimeout(()=>el.classList.remove('show'),1500);
+}
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+function escHtml(str){const d=document.createElement('div');d.textContent=str||'';return d.innerHTML}
+function fmtTime(ts){const d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+
+// 数据库初始化检查
+async function checkTables(){
+  const {error}=await db.from('rooms').select('id',{count:'exact',head:true});
+  if(error&&error.code==='42P01'){$('setup').classList.add('active');return false}
+  return true;
+}
+function copySetupSQL(){
+  navigator.clipboard.writeText(SETUP_SQL).then(()=>toast('已复制')).catch(()=>toast('复制失败'));
+}
+
+// 房间
+async function loadRooms(){
+  const{data}=await db.from('rooms').select('*').order('created_at',{ascending:true});
+  rooms=data||[]; renderRooms();
+}
+function renderRooms(){
+  $('room-list').innerHTML=rooms.map(r=>
+    `<div class="room-item ${r.id===currentRoomId?'active':''}" onclick="joinRoom('${r.id}')">
+      <span>${escHtml(r.name)}</span>${r.id==='lobby'?'<span class="badge">公共</span>':''}
+    </div>`
+  ).join('');
+}
+async function createRoom(){
+  if(!currentUser)return toast('请先登录');
+  const name=prompt('房间名称:'); if(!name||!name.trim())return;
+  const id='room_'+Date.now();
+  const{error}=await db.from('rooms').insert({id,name:name.trim(),created_by:currentUser.nick});
+  if(error){toast('创建失败');return}
+  toast('房间 "'+name+'" 已创建');
+}
+async function joinRoom(roomId){
+  currentRoomId=roomId;
+  const room=rooms.find(r=>r.id===roomId);
+  if(!room)return;
+  $('current-room-name').textContent=room.name;
+  renderRooms();
+  await loadMessages();
+  subscribeMessages();
+  subscribePresence();
+  $('msg-input').focus();
+}
+
+// 消息
+async function loadMessages(){
+  if(!currentRoomId)return;
+  const{data}=await db.from('messages').select('*').eq('room_id',currentRoomId).order('created_at',{ascending:true}).limit(200);
+  const c=$('msgs');c.innerHTML='';
+  (data||[]).forEach(m=>renderMsgEl(m,c));
+  c.scrollTop=c.scrollHeight;
+}
+function renderMsgEl(m,container){
+  const isSelf=m.author===currentUser?.nick;
+  const cls=[isSelf?'self':'peer',m.is_admin?'admin':'',m.deleted?'deleted':''].filter(Boolean).join(' ');
+  const div=document.createElement('div');div.className='msg '+cls;div.dataset.id=m.id;
+  div.innerHTML=
+    `<div class="head"><span class="name${m.is_admin?' admin-tag':''}">${escHtml(m.author)}</span><span class="time">${fmtTime(m.created_at)}</span></div>
+    <div class="body">${m.deleted?'<i>此消息已被撤回</i>':escHtml(m.body).replace(/\n/g,'<br>')}</div>
+    ${(!m.deleted&&(isSelf||currentUser?.isAdmin))?`<div class="actions-row"><button onclick="recallMsg(${m.id})">撤回</button>${currentUser?.isAdmin?`<button onclick="deleteMsg(${m.id})">删除</button>`:''}</div>`:''}`;
+  container.appendChild(div);
+}
+function subscribeMessages(){
+  if(msgChannel)db.removeChannel(msgChannel);
+  if(!currentRoomId)return;
+  msgChannel=db.channel('msgs-'+currentRoomId)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`room_id=eq.${currentRoomId}`},payload=>{
+      if(payload.new.author!==currentUser?.nick){const c=$('msgs');renderMsgEl(payload.new,c);c.scrollTop=c.scrollHeight}
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:`room_id=eq.${currentRoomId}`},payload=>{
+      const el=$('msgs').querySelector(`[data-id="${payload.new.id}"]`);if(el)el.remove();renderMsgEl(payload.new,$('msgs'));
+    })
+    .subscribe(s=>{
+      if(s==='SUBSCRIBED')showConn('connected','已连接');
+      if(s==='CLOSED'||s==='CHANNEL_ERROR')showConn('disconnected','连接断开');
+    });
+}
+function subscribeRooms(){
+  if(roomChannel)db.removeChannel(roomChannel);
+  roomChannel=db.channel('rooms-live').on('postgres_changes',{event:'INSERT',schema:'public',table:'rooms'},async()=>{await loadRooms()}).subscribe();
+}
+async function sendMsg(){
+  if(!currentUser||!currentRoomId)return;
+  const room=rooms.find(r=>r.id===currentRoomId);
+  if(!room||(room.muted||[]).includes(currentUser.nick))return toast('你已被禁言');
+  const body=$('msg-input').value.trim();if(!body)return;
+  const{error}=await db.from('messages').insert({room_id:currentRoomId,author:currentUser.nick,body,is_admin:currentUser.isAdmin,deleted:false});
+  if(error){toast('发送失败');return}
+  $('msg-input').value='';loadMessages();
+}
+async function recallMsg(id){await db.from('messages').update({deleted:true}).eq('id',id);toast('已撤回');loadMessages()}
+async function deleteMsg(id){await db.from('messages').delete().eq('id',id);toast('已删除');loadMessages()}
+async function searchMsgs(){
+  const q=prompt('搜索消息关键词:');if(!q||!currentRoomId)return;
+  const{data}=await db.from('messages').select('*').eq('room_id',currentRoomId).ilike('body','%'+q+'%').order('created_at',{ascending:true}).limit(100);
+  if(!data||!data.length)return toast('未找到');
+  const c=$('msgs');c.innerHTML='<div style="text-align:center;color:var(--text2);padding:20px">搜索结果：</div>';
+  data.forEach(m=>{
+    const div=document.createElement('div');div.className='msg '+(m.author===currentUser?.nick?'self':'peer');
+    div.innerHTML=`<div class="head"><span class="name">${escHtml(m.author)}</span><span class="time">${fmtTime(m.created_at)}</span></div><div class="body">${escHtml(m.body).replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),'<mark>$&</mark>')}</div>`;
+    c.appendChild(div);
+  });
+}
+
+// Presence
+async function subscribePresence(){
+  if(presenceChannel)db.removeChannel(presenceChannel);
+  if(!currentUser||!currentRoomId)return;
+  presenceChannel=db.channel('presence-'+currentRoomId,{config:{presence:{key:currentUser.nick}}});
+  presenceChannel.on('presence',{event:'sync'},()=>{
+    const s=presenceChannel.presenceState();onlineUsers={};
+    Object.values(s).forEach(a=>a.forEach(u=>{if(u.nick)onlineUsers[u.nick]=u}));
+    renderOnline();
+  }).subscribe(async s=>{if(s==='SUBSCRIBED')await presenceChannel.track({nick:currentUser.nick,isAdmin:currentUser.isAdmin,room:currentRoomId})});
+}
+function renderOnline(){
+  const room=rooms.find(r=>r.id===currentRoomId),list=$('online-list');
+  list.innerHTML=Object.values(onlineUsers).map(u=>
+    `<li onclick="${currentUser?.isAdmin?`adminAction('${u.nick}')`:''}" style="${currentUser?.isAdmin?'cursor:pointer':''}">
+      <span class="status-dot ${(room?.muted||[]).includes(u.nick)?'muted-dot':''}"></span>${escHtml(u.nick)}${u.isAdmin?' &#11088':''}${(room?.muted||[]).includes(u.nick)?' &#128264;':''}</li>`
+  ).join('');
+}
+async function adminAction(targetNick){
+  if(!currentUser?.isAdmin||!currentRoomId)return;
+  const action=prompt('对 '+targetNick+' 执行操作:\n1. 禁言/解禁\n2. 取消');
+  const room=rooms.find(r=>r.id===currentRoomId);if(!room||action!=='1')return;
+  const muted=[...(room.muted||[])],idx=muted.indexOf(targetNick);
+  idx>-1?(muted.splice(idx,1),toast(targetNick+' 已解禁')):(muted.push(targetNick),toast(targetNick+' 已禁言'));
+  await db.from('rooms').update({muted}).eq('id',currentRoomId);await loadRooms();
+}
+function showOnline(){$('right-panel').scrollIntoView({behavior:'smooth'})}
+function toggleAdminPanel(){$('admin-panel').style.display=$('admin-panel').style.display==='none'?'block':'none'}
+
+// 登录
+async function login(){
+  const nick=$('auth-nick').value.trim()||'用户'+Math.random().toString(36).slice(2,6);
+  currentUser={nick,isAdmin:$('auth-pass').value.trim()===ADMIN_PASS};
+  $('auth-modal').style.display='none';
+  if(currentUser.isAdmin)$('admin-btn').style.display='flex';
+  toast('欢迎'+(currentUser.isAdmin?'管理员 ':'')+nick);
+  if(!(await checkTables()))return;
+  showConn('connecting','连接中...');
+  await loadRooms();subscribeRooms();await joinRoom('lobby');
+}
+async function loginAsGuest(){
+  currentUser={nick:'游客'+Math.random().toString(36).slice(2,6),isAdmin:false};
+  $('auth-modal').style.display='none';toast('欢迎 '+currentUser.nick);
+  if(!(await checkTables()))return;
+  showConn('connecting','连接中...');
+  await loadRooms();subscribeRooms();await joinRoom('lobby');
+}
+async function logout(){
+  [presenceChannel,msgChannel,roomChannel].forEach(async(ch,i)=>{
+    if(!ch)return;
+    if(i===0)await ch.untrack();
+    db.removeChannel(ch);
+  });
+  presenceChannel=msgChannel=roomChannel=null;
+  currentUser=null;currentRoomId=null;
+  $('auth-modal').style.display='flex';$('msgs').innerHTML='';$('current-room-name').textContent='选择房间';
+  $('online-list').innerHTML='';$('admin-btn').style.display='none';renderRooms();
+}
+
+function toggleTheme(){document.body.classList.toggle('light');localStorage.setItem('zerochat_theme',document.body.classList.contains('light')?'light':'dark')}
+function toggleSidebar(){$('sidebar').classList.toggle('open')}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.activeElement===$('msg-input'))sendMsg();
+  if(e.key==='Escape'&&$('auth-modal').style.display!=='none')loginAsGuest();
+});
+if(localStorage.getItem('zerochat_theme')==='light')document.body.classList.add('light');
+</script>
+</body>
+</html>
